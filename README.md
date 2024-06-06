@@ -46,7 +46,7 @@ pre-commit 是一个代码检查工具，可以在提交代码前进行代码检
 
 ```bash
 pipx install pre-commit
-# 实际应用pre-commit 
+# 实际应用pre-commit
 pre-commit install
 ```
 
@@ -114,4 +114,42 @@ subject: commit目的的简短描述,不超过50个字符
 ```txt
 fix(DAO): 用户查询缺少username属性
 feature(Controller): 用户查询接口开发
+```
+
+## postgres
+
+### install
+
+```
+pip install pgcli
+cargo install sqlx-cli --no-default-features --features rustls --features postgres
+```
+
+进入指定库
+
+```sh
+pgcli -h 127.0.0.1 -U postgres chat
+```
+
+创建、删除库
+
+```sh
+sqlx database create -D postgres://postgres:postgres@127.0.0.1/chat
+sqlx database drop -D postgres://postgres:postgres@127.0.0.1/chat
+```
+
+创建迁移文件
+
+```sh
+sqlx migrate add initial
+
+```
+
+执行迁移文件
+
+```sh
+# 执行后，会在chat下创建一个名为_sqlx_migrations的表，记录了迁移的内容，多次执行不会有变化，如果文件改变会报错
+# echo DATABASE_URL=postgres://postgres:postgres@127.0.0.1/chat > .env
+# sqlx migrate run
+sqlx migrate run -D postgres://postgres:postgres@127.0.0.1/chat
 ```

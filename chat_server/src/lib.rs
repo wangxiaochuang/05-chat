@@ -12,8 +12,11 @@ use handlers::{
 };
 
 pub mod config;
+mod error;
 mod handlers;
+mod models;
 
+pub use models::User;
 #[derive(Debug, Clone)]
 pub struct AppState {
     inner: Arc<AppStateInner>,
