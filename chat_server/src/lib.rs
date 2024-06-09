@@ -1,10 +1,12 @@
-use std::{ops::Deref, sync::Arc};
+use std::{fmt, ops::Deref, sync::Arc};
 
+use anyhow::Context;
 use axum::{
     routing::{get, patch, post},
     Router,
 };
-use config::AppConfig;
+use config::{AppConfig, AuthConfig};
+use error::AppError;
 use handlers::{
     create_chat_handler, delete_chat_handler, index_handler, list_chat_handler,
     list_message_handler, send_message_handler, signin_handler, signup_handler,
@@ -15,20 +17,25 @@ pub mod config;
 mod error;
 mod handlers;
 mod models;
+mod utils;
 
 pub use models::User;
+use sqlx::PgPool;
+use utils::{DecodingKey, EncodingKey};
 #[derive(Debug, Clone)]
 pub struct AppState {
     inner: Arc<AppStateInner>,
 }
 
 #[allow(unused)]
-#[derive(Debug)]
 pub struct AppStateInner {
     pub(crate) config: AppConfig,
+    pub(crate) ek: EncodingKey,
+    pub(crate) dk: DecodingKey,
+    pub(crate) pool: PgPool,
 }
-pub fn get_router(config: AppConfig) -> Router {
-    let state = AppState::new(config);
+pub async fn get_router(config: AppConfig) -> Result<Router, AppError> {
+    let state = AppState::try_new(config).await?;
 
     let api = Router::new()
         .route("/signin", post(signin_handler))
@@ -42,10 +49,10 @@ pub fn get_router(config: AppConfig) -> Router {
         )
         .route("/chat/:id/message", get(list_message_handler));
 
-    Router::new()
+    Ok(Router::new()
         .route("/", get(index_handler))
         .nest("/api", api)
-        .with_state(state)
+        .with_state(state))
 }
 
 impl Deref for AppState {
@@ -57,9 +64,56 @@ impl Deref for AppState {
 }
 
 impl AppState {
-    pub fn new(config: AppConfig) -> Self {
-        Self {
-            inner: Arc::new(AppStateInner { config }),
-        }
+    fn load_key(conf: &AuthConfig) -> Result<(EncodingKey, DecodingKey), AppError> {
+        let dk = DecodingKey::load(&conf.pk).context("load pk failed")?;
+        let ek = EncodingKey::load(&conf.sk).context("load sk failed")?;
+        Ok((ek, dk))
+    }
+    pub async fn try_new(config: AppConfig) -> Result<Self, AppError> {
+        let (ek, dk) = Self::load_key(&config.auth)?;
+        let pool = PgPool::connect(&config.server.db_url)
+            .await
+            .context("connect db failed")?;
+        Ok(Self {
+            inner: Arc::new(AppStateInner {
+                config,
+                ek,
+                dk,
+                pool,
+            }),
+        })
+    }
+    #[cfg(test)]
+    pub async fn try_test_new(
+        config: AppConfig,
+    ) -> Result<(Self, sqlx_db_tester::TestPg), AppError> {
+        use sqlx_db_tester::TestPg;
+        let (ek, dk) = Self::load_key(&config.auth)?;
+        // let server_db_url = config.server.db_url.rsplitn(2, '/').skip(1).next().unwrap();
+        let (server_db_url, _) = config.server.db_url.rsplit_once('/').unwrap();
+        let tdb = TestPg::new(
+            server_db_url.to_string(),
+            std::path::Path::new("../migrations"),
+        );
+        let pool = tdb.get_pool().await;
+        Ok((
+            Self {
+                inner: Arc::new(AppStateInner {
+                    config,
+                    ek,
+                    dk,
+                    pool,
+                }),
+            },
+            tdb,
+        ))
+    }
+}
+
+impl fmt::Debug for AppStateInner {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AppStateInner")
+            .field("config", &self.config)
+            .finish()
     }
 }
