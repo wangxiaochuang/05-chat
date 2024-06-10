@@ -16,6 +16,6 @@ async fn main() -> Result<()> {
     let listener = TcpListener::bind(&addr).await?;
     info!("Listening on: {}", addr);
 
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app.into_make_service()).await?;
     Ok(())
 }

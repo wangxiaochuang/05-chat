@@ -1,7 +1,3 @@
-### chat api
-
-GET http://localhost:6688/api/chat
-
 ### chat signup
 
 POST http://localhost:6688/api/signup
@@ -9,16 +5,6 @@ Content-Type: application/json
 
 {
     "fullname": "jack",
-    "email": "jack@gmail.com",
-    "password": "Hunter48"
-}
-
-### chat signin (valid)
-
-POST http://localhost:6688/api/signin
-Content-Type: application/json
-
-{
     "email": "jack@gmail.com",
     "password": "Hunter48"
 }
@@ -32,3 +18,20 @@ Content-Type: application/json
     "email": "non-exist@gmail.com",
     "password": "Hunter48"
 }
+
+### chat signin (valid)
+# @name signin
+
+POST http://localhost:6688/api/signin
+Content-Type: application/json
+
+{
+    "email": "jack@gmail.com",
+    "password": "Hunter48"
+}
+
+@token = {{signin.response.body.token}}
+
+### chat api
+GET http://localhost:6688/api/chat
+Authorization: Bearer {{token}}

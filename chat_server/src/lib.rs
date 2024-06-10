@@ -1,7 +1,8 @@
-use std::{fmt, ops::Deref, sync::Arc};
+use std::{fmt, ops::Deref, sync::Arc, time::Duration};
 
 use anyhow::Context;
 use axum::{
+    middleware::from_fn_with_state,
     routing::{get, patch, post},
     Router,
 };
@@ -16,11 +17,13 @@ use handlers::{
 pub mod config;
 mod error;
 mod handlers;
+mod middlewares;
 mod models;
 mod utils;
 
+use middlewares::{set_layer, verify_token};
 pub use models::User;
-use sqlx::PgPool;
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use utils::{DecodingKey, EncodingKey};
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -38,8 +41,6 @@ pub async fn get_router(config: AppConfig) -> Result<Router, AppError> {
     let state = AppState::try_new(config).await?;
 
     let api = Router::new()
-        .route("/signin", post(signin_handler))
-        .route("/signup", post(signup_handler))
         .route("/chat", get(list_chat_handler).post(create_chat_handler))
         .route(
             "/chat/:id",
@@ -47,12 +48,16 @@ pub async fn get_router(config: AppConfig) -> Result<Router, AppError> {
                 .delete(delete_chat_handler)
                 .post(send_message_handler),
         )
-        .route("/chat/:id/message", get(list_message_handler));
+        .route("/chat/:id/message", get(list_message_handler))
+        .layer(from_fn_with_state(state.clone(), verify_token))
+        .route("/signin", post(signin_handler))
+        .route("/signup", post(signup_handler));
 
-    Ok(Router::new()
+    let app = Router::new()
         .route("/", get(index_handler))
         .nest("/api", api)
-        .with_state(state))
+        .with_state(state);
+    Ok(set_layer(app))
 }
 
 impl Deref for AppState {
@@ -71,7 +76,9 @@ impl AppState {
     }
     pub async fn try_new(config: AppConfig) -> Result<Self, AppError> {
         let (ek, dk) = Self::load_key(&config.auth)?;
-        let pool = PgPool::connect(&config.server.db_url)
+        let pool = PgPoolOptions::new()
+            .acquire_timeout(Duration::from_millis(1000))
+            .connect(&config.server.db_url)
             .await
             .context("connect db failed")?;
         Ok(Self {

@@ -28,8 +28,8 @@ pub enum AppError {
     SqlxError(#[from] sqlx::Error),
     #[error("password hash error: {0}")]
     PasswordHashError(#[from] argon2::password_hash::Error),
-    #[error("jwt error: {0}")]
-    JwtError(#[from] jwt_simple::Error),
+    #[error("general error: {0}")]
+    AnyError(#[from] anyhow::Error),
 }
 
 impl IntoResponse for AppError {
@@ -38,7 +38,7 @@ impl IntoResponse for AppError {
             AppError::EmailAlreadyExists(_) => StatusCode::CONFLICT,
             AppError::SqlxError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             AppError::PasswordHashError(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            AppError::JwtError(_) => StatusCode::FORBIDDEN,
+            AppError::AnyError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         (status, Json(json!(ErrorOutput::new(self.to_string())))).into_response()
     }
