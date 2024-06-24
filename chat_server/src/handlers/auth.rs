@@ -51,7 +51,7 @@ mod tests {
 
     #[tokio::test]
     async fn signup_should_work() -> Result<()> {
-        let input = CreateUser::new("jack", "admin@admin.com", "Hunter42");
+        let input = CreateUser::new("none", "jack", "admin@admin.com", "Hunter42");
         let (state, _tpg) = get_test_state_and_pg().await?;
         let ret = signup_handler(State(state), Json(input))
             .await?
@@ -66,7 +66,7 @@ mod tests {
     #[tokio::test]
     async fn signup_duplicate_user_should_fail() -> Result<()> {
         let (state, _tpg) = get_test_state_and_pg().await?;
-        let input = CreateUser::new("jack", "admin@admin.com", "Hunter42");
+        let input = CreateUser::new("none", "jack", "admin@admin.com", "Hunter42");
         signup_handler(State(state.clone()), Json(input.clone()))
             .await?
             .into_response();
@@ -84,7 +84,7 @@ mod tests {
     #[tokio::test]
     async fn duplicate_user_create_should_fail() -> Result<()> {
         let (state, _tpg) = get_test_state_and_pg().await?;
-        let input = CreateUser::new("jack", "admin@admin.com", "Hunter42");
+        let input = CreateUser::new("none", "jack", "admin@admin.com", "Hunter42");
         User::create(&input, &state.pool).await?;
         let ret = User::create(&input, &state.pool).await;
         match ret {
@@ -127,7 +127,11 @@ mod tests {
         let fullname = "jack";
         let email = "admin@admin.com";
         let password = "Hunter42";
-        User::create(&CreateUser::new(fullname, email, password), &state.pool).await?;
+        User::create(
+            &CreateUser::new("none", fullname, email, password),
+            &state.pool,
+        )
+        .await?;
 
         let input = SigninUser::new(email, password);
         let ret = signin_handler(State(state.clone()), Json(input))

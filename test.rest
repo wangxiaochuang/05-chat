@@ -4,6 +4,7 @@ POST http://localhost:6688/api/signup
 Content-Type: application/json
 
 {
+    "workspace": "acme",
     "fullname": "jack",
     "email": "jack@gmail.com",
     "password": "Hunter48"
@@ -34,4 +35,8 @@ Content-Type: application/json
 
 ### chat api
 GET http://localhost:6688/api/chat
+Authorization: Bearer {{token}}
+
+### get user list of workspace
+GET http://localhost:6688/api/users
 Authorization: Bearer {{token}}
