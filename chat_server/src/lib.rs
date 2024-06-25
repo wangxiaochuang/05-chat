@@ -91,31 +91,6 @@ impl AppState {
             }),
         })
     }
-    #[cfg(test)]
-    pub async fn try_test_new(
-        config: AppConfig,
-    ) -> Result<(Self, sqlx_db_tester::TestPg), AppError> {
-        use sqlx_db_tester::TestPg;
-        let (ek, dk) = Self::load_key(&config.auth)?;
-        // let server_db_url = config.server.db_url.rsplitn(2, '/').skip(1).next().unwrap();
-        let (server_db_url, _) = config.server.db_url.rsplit_once('/').unwrap();
-        let tdb = TestPg::new(
-            server_db_url.to_string(),
-            std::path::Path::new("../migrations"),
-        );
-        let pool = tdb.get_pool().await;
-        Ok((
-            Self {
-                inner: Arc::new(AppStateInner {
-                    config,
-                    ek,
-                    dk,
-                    pool,
-                }),
-            },
-            tdb,
-        ))
-    }
 }
 
 impl fmt::Debug for AppStateInner {
@@ -123,5 +98,65 @@ impl fmt::Debug for AppStateInner {
         f.debug_struct("AppStateInner")
             .field("config", &self.config)
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod test_util {
+    use std::sync::Arc;
+
+    use anyhow::Result;
+    use sqlx::Executor;
+    use sqlx::PgPool;
+    use sqlx_db_tester::TestPg;
+
+    use crate::{config::AppConfig, error::AppError, AppState, AppStateInner};
+
+    impl AppState {
+        pub async fn try_test_new(
+            config: AppConfig,
+        ) -> Result<(Self, sqlx_db_tester::TestPg), AppError> {
+            let (ek, dk) = Self::load_key(&config.auth)?;
+            // let server_db_url = config.server.db_url.rsplitn(2, '/').skip(1).next().unwrap();
+            let (server_db_url, _) = config.server.db_url.rsplit_once('/').unwrap();
+            let (tdb, pool) = get_test_pool(Some(server_db_url)).await;
+            Ok((
+                Self {
+                    inner: Arc::new(AppStateInner {
+                        config,
+                        ek,
+                        dk,
+                        pool,
+                    }),
+                },
+                tdb,
+            ))
+        }
+    }
+
+    pub async fn get_test_pool(url: Option<&str>) -> (TestPg, PgPool) {
+        let url = match url {
+            Some(url) => url.to_owned(),
+            None => "postgres://postgres:postgres@localhost:5432".to_owned(),
+        };
+
+        let tdb = TestPg::new(url, std::path::Path::new("../migrations"));
+        let pool = tdb.get_pool().await;
+
+        let sqls = include_str!("../fixtures/test.sql").split(';');
+        let mut ts = pool.begin().await.expect("begin transaction failed");
+        for sql in sqls {
+            if sql.trim().is_empty() {
+                continue;
+            }
+            ts.execute(sql).await.expect("execute sql failed");
+        }
+        ts.commit().await.expect("commit transaction failed");
+        (tdb, pool)
+    }
+
+    pub async fn get_test_state_and_pg() -> Result<(AppState, TestPg)> {
+        let config = AppConfig::load()?;
+        Ok(AppState::try_test_new(config).await?)
     }
 }

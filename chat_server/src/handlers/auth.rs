@@ -42,17 +42,16 @@ pub(crate) async fn signin_handler(
 
 #[cfg(test)]
 mod tests {
-    use crate::{config::AppConfig, error::ErrorOutput};
+    use crate::{error::ErrorOutput, test_util::get_test_state_and_pg};
 
     use super::*;
     use anyhow::Result;
     use http_body_util::BodyExt;
-    use sqlx_db_tester::TestPg;
 
     #[tokio::test]
     async fn signup_should_work() -> Result<()> {
-        let input = CreateUser::new("none", "jack", "admin@admin.com", "Hunter42");
         let (state, _tpg) = get_test_state_and_pg().await?;
+        let input = CreateUser::new("none", "jack", "admin@admin.com", "Hunter42");
         let ret = signup_handler(State(state), Json(input))
             .await?
             .into_response();
@@ -64,19 +63,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn signup_duplicate_user_should_fail() -> Result<()> {
+    async fn signup_duplicate_user_should_409() -> Result<()> {
         let (state, _tpg) = get_test_state_and_pg().await?;
-        let input = CreateUser::new("none", "jack", "admin@admin.com", "Hunter42");
-        signup_handler(State(state.clone()), Json(input.clone()))
-            .await?
-            .into_response();
-        let ret = signup_handler(State(state.clone()), Json(input))
+        let input = CreateUser::new("ws1", "jack1", "jack1@gmail.com", "Hunter42");
+        let ret = signup_handler(State(state), Json(input))
             .await
             .into_response();
         assert_eq!(ret.status(), StatusCode::CONFLICT);
         let body = ret.into_body().collect().await.unwrap().to_bytes();
         let ret: ErrorOutput = serde_json::from_slice(&body)?;
-        assert_eq!(ret.error, "email already exists: admin@admin.com");
+        assert_eq!(ret.error, "email already exists: jack1@gmail.com");
 
         Ok(())
     }
@@ -96,7 +92,7 @@ mod tests {
     #[tokio::test]
     async fn signin_with_wrong_password_should_403() -> Result<()> {
         let (state, _tpg) = get_test_state_and_pg().await?;
-        let input = SigninUser::new("admin@admin.com", "Hunter42");
+        let input = SigninUser::new("jack1@gmail.com", "wrong-password");
         let ret = signin_handler(State(state.clone()), Json(input))
             .await?
             .into_response();
@@ -124,14 +120,8 @@ mod tests {
     #[tokio::test]
     async fn signin_should_work() -> Result<()> {
         let (state, _tpg) = get_test_state_and_pg().await?;
-        let fullname = "jack";
-        let email = "admin@admin.com";
-        let password = "Hunter42";
-        User::create(
-            &CreateUser::new("none", fullname, email, password),
-            &state.pool,
-        )
-        .await?;
+        let email = "jack1@gmail.com";
+        let password = "Hunter48";
 
         let input = SigninUser::new(email, password);
         let ret = signin_handler(State(state.clone()), Json(input))
@@ -142,9 +132,5 @@ mod tests {
         let auth: AuthOutput = serde_json::from_slice(&body)?;
         assert_ne!(auth.token, "");
         Ok(())
-    }
-    async fn get_test_state_and_pg() -> Result<(AppState, TestPg)> {
-        let config = AppConfig::load()?;
-        Ok(AppState::try_test_new(config).await?)
     }
 }
