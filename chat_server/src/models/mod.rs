@@ -1,6 +1,8 @@
+mod chat;
 mod user;
 mod workspace;
 
+pub use chat::{CreateChat, UpdateChat};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
@@ -45,6 +47,7 @@ pub enum ChatType {
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize, PartialEq)]
 pub struct Chat {
     pub id: i64,
+    pub ws_id: i64,
     pub name: Option<String>,
     pub r#type: ChatType,
     pub members: Vec<i64>,
