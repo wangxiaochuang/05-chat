@@ -24,6 +24,7 @@ sha1 = "0.10.6"
 sqlx = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = "0.7.11"
 tower = "0.4.13"
 tower-http = { version = "0.5.2", features = [
     "compression-full",

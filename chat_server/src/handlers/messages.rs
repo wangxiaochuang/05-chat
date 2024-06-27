@@ -1,10 +1,15 @@
 use axum::{
+    body::Body,
     extract::{Multipart, Path, State},
-    http::{header::CONTENT_TYPE, HeaderMap},
+    http::{
+        header::{CONTENT_DISPOSITION, CONTENT_TYPE},
+        HeaderMap,
+    },
     response::IntoResponse,
     Extension, Json,
 };
 use tokio::fs;
+use tokio_util::io::ReaderStream;
 use tracing::{info, warn};
 
 use crate::{error::AppError, models::ChatFile, AppState, User};
@@ -32,9 +37,21 @@ pub(crate) async fn file_handler(
         return Err(AppError::NotFound("file doesn't exist".to_string()));
     }
     let mime = mime_guess::from_path(&path).first_or_octet_stream();
-    let body = fs::read(path).await?;
-    let headers = HeaderMap::from_iter([(CONTENT_TYPE, mime.to_string().parse().unwrap())]);
-    Ok((headers, body))
+
+    let file = fs::File::open(path).await?;
+    let stream = ReaderStream::new(file);
+    // let body = fs::read(path).await?;
+    let headers = HeaderMap::from_iter([
+        (CONTENT_TYPE, mime.to_string().parse().unwrap()),
+        (
+            CONTENT_DISPOSITION,
+            "attachment; filename=\"Cargo.toml\""
+                .to_string()
+                .parse()
+                .unwrap(),
+        ),
+    ]);
+    Ok((headers, Body::from_stream(stream)))
 }
 
 pub(crate) async fn upload_handler(

@@ -32,7 +32,7 @@ Content-Type: application/json
     "password": "Hunter48"
 }
 
-### chat signin (valid)
+############################# chat signin (valid) ################################
 # @name signin
 
 POST http://localhost:6688/api/signin
