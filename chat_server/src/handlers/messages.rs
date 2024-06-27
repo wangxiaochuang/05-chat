@@ -36,17 +36,22 @@ pub(crate) async fn file_handler(
     if !path.exists() {
         return Err(AppError::NotFound("file doesn't exist".to_string()));
     }
+    // get path filename
+    let filename = path
+        .file_name()
+        .ok_or(AppError::AnyError(anyhow::anyhow!("invalid path")))?
+        .to_str()
+        .ok_or(AppError::AnyError(anyhow::anyhow!("invalid path")))?;
     let mime = mime_guess::from_path(&path).first_or_octet_stream();
 
-    let file = fs::File::open(path).await?;
+    let file = fs::File::open(&path).await?;
     let stream = ReaderStream::new(file);
     // let body = fs::read(path).await?;
     let headers = HeaderMap::from_iter([
         (CONTENT_TYPE, mime.to_string().parse().unwrap()),
         (
             CONTENT_DISPOSITION,
-            "attachment; filename=\"Cargo.toml\""
-                .to_string()
+            format!("attachment; filename=\"{}\"", filename)
                 .parse()
                 .unwrap(),
         ),
