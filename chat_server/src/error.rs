@@ -28,6 +28,8 @@ pub enum AppError {
     CreateChatError(String),
     #[error("not found: {0}")]
     NotFound(String),
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
     #[error("permission deny")]
     PermissionDeny,
     #[error("sql error: {0}")]
@@ -44,6 +46,7 @@ impl IntoResponse for AppError {
             AppError::EmailAlreadyExists(_) => StatusCode::CONFLICT,
             AppError::CreateChatError(_) => StatusCode::BAD_REQUEST,
             AppError::NotFound(_) => StatusCode::NOT_FOUND,
+            AppError::IoError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             AppError::PermissionDeny => StatusCode::FORBIDDEN,
             AppError::SqlxError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             AppError::PasswordHashError(_) => StatusCode::UNPROCESSABLE_ENTITY,

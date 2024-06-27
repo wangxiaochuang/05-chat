@@ -66,3 +66,25 @@ Authorization: Bearer {{token}}
 ### get user list of workspace
 GET http://localhost:6688/api/users
 Authorization: Bearer {{token}}
+
+### upload file
+
+POST http://localhost:6688/api/upload
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=MyBoundary
+
+--MyBoundary
+Content-Disposition: form-data; filename="http-headers-status-v3.png"
+Content-Type: application/octet-stream
+
+< /Users/wxc/Downloads/http-headers-status-v3.png
+--MyBoundary
+Content-Disposition: form-data; filename="hello.txt"
+Content-Type: text/plain
+
+Hello, World!
+--MyBoundary--
+
+### get files
+GET http://localhost:6688/api/files/1/8d1/936/0694594d135062740179b325dfb8c90a8c.png
+Authorization: Bearer {{token}}

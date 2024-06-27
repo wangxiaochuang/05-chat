@@ -9,9 +9,9 @@ use axum::{
 use config::{AppConfig, AuthConfig};
 use error::AppError;
 use handlers::{
-    create_chat_handler, delete_chat_handler, get_chat_handler, index_handler, list_chat_handler,
-    list_chat_users_handler, list_message_handler, send_message_handler, signin_handler,
-    signup_handler, update_chat_handler,
+    create_chat_handler, delete_chat_handler, file_handler, get_chat_handler, index_handler,
+    list_chat_handler, list_chat_users_handler, list_message_handler, send_message_handler,
+    signin_handler, signup_handler, update_chat_handler, upload_handler,
 };
 
 pub mod config;
@@ -24,6 +24,7 @@ mod utils;
 use middlewares::{set_layer, verify_token};
 pub use models::User;
 use sqlx::{postgres::PgPoolOptions, PgPool};
+use tokio::fs;
 use utils::{DecodingKey, EncodingKey};
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -51,6 +52,8 @@ pub async fn get_router(config: AppConfig) -> Result<Router, AppError> {
                 .post(send_message_handler),
         )
         .route("/chats/:id/message", get(list_message_handler))
+        .route("/upload", post(upload_handler))
+        .route("/files/:ws_id/*path", get(file_handler))
         .layer(from_fn_with_state(state.clone(), verify_token))
         .route("/signin", post(signin_handler))
         .route("/signup", post(signup_handler));
@@ -77,6 +80,9 @@ impl AppState {
         Ok((ek, dk))
     }
     pub async fn try_new(config: AppConfig) -> Result<Self, AppError> {
+        fs::create_dir_all(&config.server.base_dir)
+            .await
+            .context("create base_dir failed")?;
         let (ek, dk) = Self::load_key(&config.auth)?;
         let pool = PgPoolOptions::new()
             .acquire_timeout(Duration::from_millis(1000))
