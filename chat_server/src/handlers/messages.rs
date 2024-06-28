@@ -65,7 +65,7 @@ pub(crate) async fn upload_handler(
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, AppError> {
     let ws_id = user.ws_id as u64;
-    let base_dir = state.config.server.base_dir.join(ws_id.to_string());
+    let base_dir = &state.config.server.base_dir;
     let mut files = vec![];
     while let Some(field) = multipart
         .next_field()
@@ -78,9 +78,9 @@ pub(crate) async fn upload_handler(
             continue;
         };
 
-        let file = ChatFile::new(&filename, &data);
-        files.push(file.url(ws_id));
-        let path = file.path(&base_dir);
+        let file = ChatFile::new(ws_id, &filename, &data);
+        files.push(file.url());
+        let path = file.path(base_dir);
         if path.exists() {
             info!("File {} already exists: {:?}", filename, path);
             continue;
