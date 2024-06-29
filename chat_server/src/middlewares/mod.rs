@@ -10,9 +10,11 @@ use tower_http::{
 use tracing::Level;
 
 mod auth;
+mod perm;
 mod request_id;
 mod server_time;
 pub use auth::verify_token;
+pub use perm::verify_chat_perm;
 
 const REQUEST_ID_HEADER: &str = "X-Request-Id";
 const SERVER_TIME_HEADER: &str = "X-Server-Time";

@@ -5,7 +5,7 @@ use serde_json::json;
 use crate::{
     error::{AppError, ErrorOutput},
     models::{CreateUser, SigninUser},
-    AppState, User,
+    AppState,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -17,7 +17,7 @@ pub(crate) async fn signup_handler(
     State(state): State<AppState>,
     Json(input): Json<CreateUser>,
 ) -> Result<impl IntoResponse, AppError> {
-    let user = User::create(&input, &state.pool).await?;
+    let user = state.user_svc.create(&input).await?;
     let token = state.ek.sign(user)?;
     Ok((StatusCode::CREATED, Json(json!(AuthOutput { token }))))
 }
@@ -26,7 +26,7 @@ pub(crate) async fn signin_handler(
     State(state): State<AppState>,
     Json(input): Json<SigninUser>,
 ) -> Result<impl IntoResponse, AppError> {
-    let user = User::verify(&input, &state.pool).await?;
+    let user = state.user_svc.verify(&input).await?;
     match user {
         Some(user) => {
             let token = state.ek.sign(user)?;
@@ -81,8 +81,8 @@ mod tests {
     async fn duplicate_user_create_should_fail() -> Result<()> {
         let (state, _tpg) = get_test_state_and_pg().await?;
         let input = CreateUser::new("none", "jack", "admin@admin.com", "Hunter42");
-        User::create(&input, &state.pool).await?;
-        let ret = User::create(&input, &state.pool).await;
+        state.user_svc.create(&input).await?;
+        let ret = state.user_svc.create(&input).await;
         match ret {
             Err(AppError::EmailAlreadyExists(email)) => assert_eq!(email, input.email),
             _ => panic!("should be duplicate user error"),

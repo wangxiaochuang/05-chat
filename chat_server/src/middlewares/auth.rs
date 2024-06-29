@@ -42,7 +42,7 @@ pub async fn verify_token(State(state): State<AppState>, req: Request, next: Nex
 
 #[cfg(test)]
 mod tests {
-    use crate::{config::AppConfig, User};
+    use crate::{config::AppConfig, models::User};
 
     use super::*;
     use anyhow::Result;

@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{Multipart, Path, State},
+    extract::{Multipart, Path, Query, State},
     http::{
         header::{CONTENT_DISPOSITION, CONTENT_TYPE},
         HeaderMap,
@@ -12,14 +12,29 @@ use tokio::fs;
 use tokio_util::io::ReaderStream;
 use tracing::{info, warn};
 
-use crate::{error::AppError, models::ChatFile, AppState, User};
+use crate::{
+    error::AppError,
+    models::{ChatFile, CreateMessage, ListMessageOption, Message, User},
+    AppState,
+};
 
-pub(crate) async fn send_message_handler() -> impl IntoResponse {
-    "send message"
+pub(crate) async fn send_message_handler(
+    State(state): State<AppState>,
+    Extension(user): Extension<User>,
+    Path(chat_id): Path<u64>,
+    Json(input): Json<CreateMessage>,
+) -> Result<impl IntoResponse, AppError> {
+    let message = state.msg_svc.create(input, chat_id, user.id as _).await?;
+    Ok(Json(message))
 }
 
-pub(crate) async fn list_message_handler() -> impl IntoResponse {
-    "list message"
+pub(crate) async fn list_message_handler(
+    State(state): State<AppState>,
+    Path(chat_id): Path<u64>,
+    Query(input): Query<ListMessageOption>,
+) -> Result<impl IntoResponse, AppError> {
+    let messages: Vec<Message> = state.msg_svc.list(input, chat_id as _).await?;
+    Ok(Json(messages))
 }
 
 pub(crate) async fn file_handler(

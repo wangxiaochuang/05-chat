@@ -45,7 +45,7 @@ Content-Type: application/json
 
 @token = {{signin.response.body.token}}
 
-### create chat api
+### create chat api #######################################
 POST http://localhost:6688/api/chats
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -68,7 +68,7 @@ GET http://localhost:6688/api/users
 Authorization: Bearer {{token}}
 
 ### upload file
-
+# @name uploadx
 POST http://localhost:6688/api/upload
 Authorization: Bearer {{token}}
 Content-Type: multipart/form-data; boundary=MyBoundary
@@ -85,6 +85,24 @@ Content-Type: text/plain
 Hello, World!
 --MyBoundary--
 
+##################
+@files = {{uploadx.response.body.*}}
+
 ### get files
 GET http://localhost:6688/api/files/1/8d1/936/0694594d135062740179b325dfb8c90a8c.png
 Authorization: Bearer {{token}}
+
+### send message
+POST http://localhost:6688/api/chats/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "content": "hello",
+    "files": {{files}}
+}
+
+### list messages
+GET http://localhost:6688/api/chats/3/message?last_id=5&limit=2
+Authorization: Bearer {{token}}
+Content-Type: application/json

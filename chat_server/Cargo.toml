@@ -38,3 +38,4 @@ uuid = { version = "1.8.0", features = ["v7"] }
 [dev-dependencies]
 http-body-util = "0.1.1"
 sqlx-db-tester = "0.4.2"
+tempfile = "3.10.1"

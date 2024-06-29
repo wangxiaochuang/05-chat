@@ -396,6 +396,7 @@ dependencies = [
  "sha1",
  "sqlx",
  "sqlx-db-tester",
+ "tempfile",
  "thiserror",
  "tokio",
  "tokio-util",

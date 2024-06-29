@@ -19,10 +19,11 @@ mod error;
 mod handlers;
 mod middlewares;
 mod models;
+mod services;
 mod utils;
 
-use middlewares::{set_layer, verify_token};
-pub use models::User;
+use middlewares::{set_layer, verify_chat_perm, verify_token};
+use services::{ChatService, MsgService, UserService, WsService};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::fs;
 use utils::{DecodingKey, EncodingKey};
@@ -37,21 +38,28 @@ pub struct AppStateInner {
     pub(crate) ek: EncodingKey,
     pub(crate) dk: DecodingKey,
     pub(crate) pool: PgPool,
+    pub(crate) chat_svc: ChatService,
+    pub(crate) user_svc: UserService,
+    pub(crate) ws_svc: WsService,
+    pub(crate) msg_svc: MsgService,
 }
 pub async fn get_router(config: AppConfig) -> Result<Router, AppError> {
     let state = AppState::try_new(config).await?;
 
-    let api = Router::new()
-        .route("/users", get(list_chat_users_handler))
-        .route("/chats", get(list_chat_handler).post(create_chat_handler))
+    let chat_route = Router::new()
         .route(
-            "/chats/:id",
+            "/:id",
             get(get_chat_handler)
                 .patch(update_chat_handler)
                 .delete(delete_chat_handler)
                 .post(send_message_handler),
         )
-        .route("/chats/:id/message", get(list_message_handler))
+        .route("/:id/message", get(list_message_handler))
+        .layer(from_fn_with_state(state.clone(), verify_chat_perm))
+        .route("/", get(list_chat_handler).post(create_chat_handler));
+    let api = Router::new()
+        .route("/users", get(list_chat_users_handler))
+        .nest("/chats", chat_route)
         .route("/upload", post(upload_handler))
         .route("/files/:ws_id/*path", get(file_handler))
         .layer(from_fn_with_state(state.clone(), verify_token))
@@ -89,12 +97,20 @@ impl AppState {
             .connect(&config.server.db_url)
             .await
             .context("connect db failed")?;
+        let ws_svc = WsService::new(pool.clone());
+        let user_svc = UserService::new(pool.clone(), ws_svc.clone());
+        let chat_svc = ChatService::new(pool.clone(), user_svc.clone());
+        let msg_svc = MsgService::new(pool.clone(), config.server.base_dir.clone());
         Ok(Self {
             inner: Arc::new(AppStateInner {
                 config,
                 ek,
                 dk,
                 pool,
+                chat_svc,
+                user_svc,
+                ws_svc,
+                msg_svc,
             }),
         })
     }
@@ -117,6 +133,10 @@ mod test_util {
     use sqlx::PgPool;
     use sqlx_db_tester::TestPg;
 
+    use crate::services::ChatService;
+    use crate::services::MsgService;
+    use crate::services::UserService;
+    use crate::services::WsService;
     use crate::{config::AppConfig, error::AppError, AppState, AppStateInner};
 
     impl AppState {
@@ -127,6 +147,10 @@ mod test_util {
             // let server_db_url = config.server.db_url.rsplitn(2, '/').skip(1).next().unwrap();
             let (server_db_url, _) = config.server.db_url.rsplit_once('/').unwrap();
             let (tdb, pool) = get_test_pool(Some(server_db_url)).await;
+            let ws_svc = WsService::new(pool.clone());
+            let user_svc = UserService::new(pool.clone(), ws_svc.clone());
+            let chat_svc = ChatService::new(pool.clone(), user_svc.clone());
+            let msg_svc = MsgService::new(pool.clone(), config.server.base_dir.clone());
             Ok((
                 Self {
                     inner: Arc::new(AppStateInner {
@@ -134,6 +158,10 @@ mod test_util {
                         ek,
                         dk,
                         pool,
+                        chat_svc,
+                        user_svc,
+                        ws_svc,
+                        msg_svc,
                     }),
                 },
                 tdb,
@@ -163,7 +191,7 @@ mod test_util {
     }
 
     pub async fn get_test_state_and_pg() -> Result<(AppState, TestPg)> {
-        let config = AppConfig::load()?;
+        let config: AppConfig = AppConfig::load()?;
         Ok(AppState::try_test_new(config).await?)
     }
 }

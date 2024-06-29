@@ -1,8 +1,33 @@
-use crate::AppError;
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
-use super::{Chat, ChatType, ChatUser};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use sha1::{Digest, Sha1};
+use sqlx::prelude::FromRow;
+
+use crate::error::AppError;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, sqlx::Type)]
+#[sqlx(type_name = "chat_type", rename_all = "snake_case")]
+pub enum ChatType {
+    Single,
+    Group,
+    PrivateChannel,
+    PublicChannel,
+}
+
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize, PartialEq)]
+pub struct Chat {
+    pub id: i64,
+    pub ws_id: i64,
+    pub name: Option<String>,
+    pub r#type: ChatType,
+    pub members: Vec<i64>,
+    pub created_at: DateTime<Utc>,
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CreateChat {
@@ -16,234 +41,111 @@ pub struct UpdateChat {
     pub name: Option<String>,
 }
 
-impl Chat {
-    pub async fn create(input: CreateChat, ws_id: u64, pool: &PgPool) -> Result<Self, AppError> {
-        let len = match input.members.len() {
-            len if len < 2 => {
-                return Err(AppError::CreateChatError(
-                    "Chat must have at least 2 members".to_string(),
-                ))
-            }
-            len if len > 8 && input.name.is_none() => {
-                return Err(AppError::CreateChatError(
-                    "Group chat with more than 8 members must have a name".to_string(),
-                ))
-            }
-            len => len,
-        };
-
-        let users = ChatUser::fetch_by_ids(&input.members, pool).await?;
-        if users.len() != len {
-            return Err(AppError::CreateChatError(
-                "Some members do not exist".to_string(),
-            ));
-        }
-
-        let chat_type = match (&input.name, len) {
-            (None, 2) => ChatType::Single,
-            (None, _) => ChatType::Group,
-            (Some(_), _) => {
-                if input.public {
-                    ChatType::PublicChannel
-                } else {
-                    ChatType::PrivateChannel
-                }
-            }
-        };
-
-        let chat = sqlx::query_as(
-            r#"
-            INSERT INTO chats (ws_id, name, type, members)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, ws_id, name, type, members, created_at
-            "#,
-        )
-        .bind(ws_id as i64)
-        .bind(input.name)
-        .bind(chat_type)
-        .bind(input.members)
-        .fetch_one(pool)
-        .await?;
-
-        Ok(chat)
-    }
-
-    pub async fn delete(ws_id: u64, chat_id: u64, pool: &PgPool) -> Result<Self, AppError> {
-        if let Some(chat) = Self::get_by_id(chat_id, pool).await? {
-            if chat.ws_id as u64 != ws_id {
-                return Err(AppError::PermissionDeny);
-            }
-            let chat = sqlx::query_as(
-                r#"
-                DELETE FROM chats
-                WHERE id = $1
-                RETURNING id, ws_id, name, type, members, created_at
-                "#,
-            )
-            .bind(chat_id as i64)
-            .fetch_one(pool)
-            .await?;
-            Ok(chat)
-        } else {
-            Err(AppError::NotFound("chat id not found".to_owned()))
-        }
-    }
-
-    pub async fn update(
-        input: UpdateChat,
-        ws_id: u64,
-        chat_id: u64,
-        pool: &PgPool,
-    ) -> Result<Self, AppError> {
-        if let Some(chat) = Self::get_by_id(chat_id, pool).await? {
-            if chat.ws_id as u64 != ws_id {
-                return Err(AppError::PermissionDeny);
-            }
-            let chat = sqlx::query_as(
-                r#"
-                update chats
-                SET name = $1
-                WHERE id = $2
-                RETURNING id, ws_id, name, type, members, created_at
-                "#,
-            )
-            .bind(input.name)
-            .bind(chat_id as i64)
-            .fetch_one(pool)
-            .await?;
-            Ok(chat)
-        } else {
-            Err(AppError::NotFound("chat id not found".to_owned()))
-        }
-    }
-
-    pub async fn fetch_all(ws_id: u64, pool: &PgPool) -> Result<Vec<Self>, AppError> {
-        let chats = sqlx::query_as(
-            r#"
-            SELECT id, ws_id, name, type, members, created_at
-            FROM chats
-            WHERE ws_id = $1
-            "#,
-        )
-        .bind(ws_id as i64)
-        .fetch_all(pool)
-        .await?;
-
-        Ok(chats)
-    }
-
-    pub async fn get_by_id(id: u64, pool: &PgPool) -> Result<Option<Self>, AppError> {
-        let chat = sqlx::query_as(
-            r#"
-            SELECT id, ws_id, name, type, members, created_at
-            FROM chats
-            WHERE id = $1
-            "#,
-        )
-        .bind(id as i64)
-        .fetch_optional(pool)
-        .await?;
-
-        Ok(chat)
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatFile {
+    pub ws_id: u64,
+    pub ext: String,
+    pub hash: String,
 }
 
-#[cfg(test)]
-impl CreateChat {
-    pub fn new(name: Option<String>, members: &[i64], public: bool) -> Self {
+impl ChatFile {
+    pub fn new(ws_id: u64, filename: &str, data: &[u8]) -> Self {
+        let hash = Sha1::digest(data);
+        let (_, ext) = filename.rsplit_once('.').unwrap_or((filename, "txt"));
         Self {
-            name,
-            members: members.to_vec(),
-            public,
+            ws_id,
+            ext: ext.to_string(),
+            hash: hex::encode(hash),
         }
+    }
+
+    pub fn url(&self) -> String {
+        format!("/files/{}", self.hash_to_path())
+    }
+
+    pub fn path(&self, base_dir: impl AsRef<Path>) -> PathBuf {
+        base_dir.as_ref().join(self.hash_to_path())
+    }
+
+    pub fn hash_to_path(&self) -> String {
+        let (first, remain) = self.hash.split_at(3);
+        let (second, third) = remain.split_at(3);
+        let ext = &self.ext;
+        let ws_id = self.ws_id;
+        format!("{ws_id}/{first}/{second}/{third}.{ext}")
     }
 }
 
-#[cfg(test)]
-impl UpdateChat {
-    pub fn new(name: Option<String>) -> Self {
-        Self { name }
+impl FromStr for ChatFile {
+    type Err = AppError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let remain = s
+            .strip_prefix("/files/")
+            .ok_or(AppError::InvalidInput("file path".to_string()))?;
+        let [ws_id, part1, part2, filename] = remain
+            .split('/')
+            .collect::<Vec<_>>()
+            .try_into()
+            .map_err(|_| AppError::InvalidInput("file path".to_string()))?;
+        let ws_id: u64 = ws_id
+            .parse()
+            .map_err(|_| AppError::InvalidInput("file path".to_string()))?;
+        let [part3, ext] = filename
+            .split('.')
+            .collect::<Vec<_>>()
+            .try_into()
+            .map_err(|_| AppError::InvalidInput("file path".to_string()))?;
+
+        let hash = format!("{part1}{part2}{part3}");
+        Ok(Self {
+            ws_id,
+            ext: ext.to_owned(),
+            hash,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::test_util::get_test_pool;
+    use core::panic;
 
     use super::*;
 
-    #[tokio::test]
-    async fn create_single_chat_should_work() {
-        let (_tdb, pool) = get_test_pool(None).await;
-        let input = CreateChat::new(None, &[1, 2], false);
-        let chat = Chat::create(input, 1, &pool)
-            .await
-            .expect("create chat failed");
-        assert_eq!(chat.ws_id, 1);
-        assert_eq!(chat.members.len(), 2);
-        assert_eq!(chat.r#type, ChatType::Single);
+    #[test]
+    fn chat_file_new_should_work() {
+        let file = ChatFile::new(1, "test.txt", b"hello world");
+        assert_eq!(file.ws_id, 1);
+        assert_eq!(file.ext, "txt");
+        assert_eq!(file.hash, "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed");
+        assert_eq!(
+            file.hash_to_path(),
+            "1/2aa/e6c/35c94fcfb415dbe95f408b9ce91ee846ed.txt"
+        );
+        assert_eq!(
+            file.url(),
+            "/files/1/2aa/e6c/35c94fcfb415dbe95f408b9ce91ee846ed.txt"
+        );
+        assert_eq!(
+            file.path("/files"),
+            Path::new("/files/1/2aa/e6c/35c94fcfb415dbe95f408b9ce91ee846ed.txt")
+        );
     }
 
-    #[tokio::test]
-    async fn create_public_name_chat_should_work() {
-        let (_tdb, pool) = get_test_pool(None).await;
-        let input = CreateChat::new(Some("test".to_string()), &[1, 2, 3], true);
-        let chat = Chat::create(input, 1, &pool)
-            .await
-            .expect("create chat failed");
-        assert_eq!(chat.ws_id, 1);
-        assert_eq!(chat.members.len(), 3);
-        assert_eq!(chat.r#type, ChatType::PublicChannel);
-        assert_eq!(chat.name, Some("test".to_string()));
+    #[test]
+    fn parse_valid_url_should_work() {
+        let file =
+            ChatFile::from_str("/files/1/2aa/e6c/35c94fcfb415dbe95f408b9ce91ee846ed.txt").unwrap();
+        assert_eq!(file.ws_id, 1);
+        assert_eq!(file.ext, "txt");
+        assert_eq!(file.hash, "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed");
     }
 
-    #[tokio::test]
-    pub async fn chat_get_by_id_should_work() {
-        let (_tdb, pool) = get_test_pool(None).await;
-        let chat = Chat::get_by_id(1, &pool)
-            .await
-            .expect("get chat by id failed")
-            .unwrap();
-        assert_eq!(chat.members.len(), 5);
-        assert_eq!(chat.name.unwrap(), "general");
-        assert_eq!(chat.ws_id, 1);
-    }
-    #[tokio::test]
-    pub async fn chat_get_all_should_work() {
-        let (_tdb, pool) = get_test_pool(None).await;
-        let chats = Chat::fetch_all(1, &pool).await.expect("get all chat fail");
-        assert_eq!(chats.len(), 4);
-    }
-    #[tokio::test]
-    pub async fn chat_delete_should_work() {
-        let (_tdb, pool) = get_test_pool(None).await;
-        let chat = Chat::delete(1, 1, &pool).await.expect("delete chat fail");
-        assert_eq!(chat.name.unwrap(), "general");
-        let chat = Chat::get_by_id(1, &pool)
-            .await
-            .expect("get chat by id failed");
-        assert!(chat.is_none())
-    }
-    #[tokio::test]
-    pub async fn chat_delete_other_ws_chat_should_fail() {
-        let (_tdb, pool) = get_test_pool(None).await;
-        match Chat::delete(2, 1, &pool).await {
-            Err(AppError::PermissionDeny) => return,
-            _ => panic!("should fail"),
+    #[test]
+    fn parse_invalid_url_should_work() {
+        match ChatFile::from_str("/files/1/2aa/e6c/aa/35c94fcfb415dbe95f408b9ce91ee846ed.txt") {
+            Err(AppError::InvalidInput(msg)) => assert_eq!(msg, "file path"),
+            _ => panic!("invalid url should return error"),
         };
-    }
-
-    #[tokio::test]
-    pub async fn chat_update_should_work() {
-        let (_tdb, pool) = get_test_pool(None).await;
-        let input = UpdateChat::new(Some("test".to_string()));
-        Chat::update(input, 1, 1, &pool)
-            .await
-            .expect("update chat fail");
-        let chat = Chat::get_by_id(1, &pool)
-            .await
-            .expect("get chat by id failed")
-            .unwrap();
-        assert_eq!(chat.name.unwrap(), "test");
     }
 }
