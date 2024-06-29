@@ -46,8 +46,8 @@ pgcli -h 127.0.0.1 -U postgres chat
 创建、删除库
 
 ```sh
-sqlx database create -D postgres://postgres:postgres@127.0.0.1/chat
 sqlx database drop -D postgres://postgres:postgres@127.0.0.1/chat
+sqlx database create -D postgres://postgres:postgres@127.0.0.1/chat
 ```
 
 创建迁移文件
