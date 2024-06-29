@@ -28,6 +28,7 @@ sqlx = { version = "0.7.4", features = [
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 serde = { version = "1.0.203", features = ["derive"] }
+serde_json = "1.0.117"
 serde_yaml = "0.9.34"
 chrono = { version = "0.4.38", features = ["serde"] }
 chat_core = { path = "./chat_core" }
@@ -39,3 +40,7 @@ tower-http = { version = "0.5.2", features = [
 ] }
 uuid = { version = "1.8.0", features = ["v7"] }
 axum-extra = { version = "0.9.3", features = ["typed-header"] }
+jwt-simple = { version = "0.12.9", features = [
+    "pure-rust",
+    "superboring",
+], default-features = false }

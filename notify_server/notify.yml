@@ -4,5 +4,5 @@ server:
 auth:
   pk: |
     -----BEGIN PUBLIC KEY-----
-    MCowBQYDK2VwAyEAfM+lwNHj6TRJ3EGP38lIJcOo9Dlt2u2JzcwWMbu7jQY=
+    MCowBQYDK2VwAyEA9Q0GlRpk0eQY/35d414jJ9l6k5xH1SDKCQwg6z/lTmQ=
     -----END PUBLIC KEY-----
