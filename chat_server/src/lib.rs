@@ -22,7 +22,7 @@ mod models;
 mod services;
 mod utils;
 
-use middlewares::{set_layer, verify_chat_perm, verify_token};
+use middlewares::{set_layer, verify_chat_perm, verify_token_v2};
 use services::{ChatService, MsgService, UserService, WsService};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::fs;
@@ -62,7 +62,7 @@ pub async fn get_router(config: AppConfig) -> Result<Router, AppError> {
         .nest("/chats", chat_route)
         .route("/upload", post(upload_handler))
         .route("/files/:ws_id/*path", get(file_handler))
-        .layer(from_fn_with_state(state.clone(), verify_token))
+        .layer(from_fn_with_state(state.clone(), verify_token_v2))
         .route("/signin", post(signin_handler))
         .route("/signup", post(signup_handler));
 

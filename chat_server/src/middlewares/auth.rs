@@ -12,6 +12,7 @@ use tracing::warn;
 
 use crate::AppState;
 
+#[allow(dead_code)]
 pub async fn verify_token(State(state): State<AppState>, req: Request, next: Next) -> Response {
     let (mut parts, body) = req.into_parts();
     let req =
@@ -39,6 +40,27 @@ pub async fn verify_token(State(state): State<AppState>, req: Request, next: Nex
         };
     next.run(req).await
 }
+pub async fn verify_token_v2(
+    State(state): State<AppState>,
+    TypedHeader(bearer): TypedHeader<axum_extra::headers::Authorization<Bearer>>,
+    mut req: Request,
+    next: Next,
+) -> Response {
+    let token = bearer.token();
+    match state.dk.verify(token) {
+        Ok(user) => {
+            req.extensions_mut().insert(user);
+        }
+        Err(e) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                format!("parse Authorization header failed: {}", e),
+            )
+                .into_response()
+        }
+    }
+    next.run(req).await
+}
 
 #[cfg(test)]
 mod tests {
@@ -63,7 +85,7 @@ mod tests {
 
         let app = Router::new()
             .route("/", get(handler))
-            .layer(from_fn_with_state(state.clone(), verify_token))
+            .layer(from_fn_with_state(state.clone(), verify_token_v2))
             .with_state(state);
 
         let req = Request::builder()
@@ -76,7 +98,7 @@ mod tests {
         // no token
         let req = Request::builder().uri("/").body(Body::empty())?;
         let res = app.clone().oneshot(req).await?;
-        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
 
         // bad token
         let req = Request::builder()
@@ -84,7 +106,7 @@ mod tests {
             .header("Authorization", "Bearer bad-token")
             .body(Body::empty())?;
         let res = app.oneshot(req).await?;
-        assert_eq!(res.status(), StatusCode::FORBIDDEN);
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 
         Ok(())
     }

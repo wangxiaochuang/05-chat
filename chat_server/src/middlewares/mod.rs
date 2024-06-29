@@ -13,7 +13,7 @@ mod auth;
 mod perm;
 mod request_id;
 mod server_time;
-pub use auth::verify_token;
+pub use auth::verify_token_v2;
 pub use perm::verify_chat_perm;
 
 const REQUEST_ID_HEADER: &str = "X-Request-Id";

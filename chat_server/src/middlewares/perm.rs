@@ -29,7 +29,7 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    use crate::{middlewares::verify_token, test_util::get_test_state_and_pg};
+    use crate::{middlewares::verify_token_v2, test_util::get_test_state_and_pg};
 
     use super::*;
 
@@ -46,7 +46,7 @@ mod tests {
         let app = Router::new()
             .route("/:id", get(handler))
             .layer(from_fn_with_state(state.clone(), verify_chat_perm))
-            .layer(from_fn_with_state(state.clone(), verify_token))
+            .layer(from_fn_with_state(state.clone(), verify_token_v2))
             .with_state(state);
 
         let req = Request::builder()
