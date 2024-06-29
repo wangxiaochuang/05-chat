@@ -4,8 +4,9 @@ use axum::{
     response::{IntoResponse, Response},
     Extension,
 };
+use chat_core::User;
 
-use crate::{error::AppError, models::User, AppState};
+use crate::{error::AppError, AppState};
 
 pub async fn verify_chat_perm(
     State(state): State<AppState>,
@@ -27,9 +28,10 @@ mod tests {
     use axum::{
         body::Body, http::StatusCode, middleware::from_fn_with_state, routing::get, Router,
     };
+    use chat_core::middlewares::verify_token_v2;
     use tower::ServiceExt;
 
-    use crate::{middlewares::verify_token_v2, test_util::get_test_state_and_pg};
+    use crate::test_util::get_test_state_and_pg;
 
     use super::*;
 
@@ -46,7 +48,10 @@ mod tests {
         let app = Router::new()
             .route("/:id", get(handler))
             .layer(from_fn_with_state(state.clone(), verify_chat_perm))
-            .layer(from_fn_with_state(state.clone(), verify_token_v2))
+            .layer(from_fn_with_state(
+                state.clone(),
+                verify_token_v2::<AppState>,
+            ))
             .with_state(state);
 
         let req = Request::builder()

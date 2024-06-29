@@ -1,13 +1,24 @@
 use std::sync::Arc;
 
-use crate::{
-    models::{Chat, ChatType, CreateChat, UpdateChat},
-    AppError,
-};
+use crate::AppError;
 
+use chat_core::{Chat, ChatType};
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use super::UserService;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CreateChat {
+    pub name: Option<String>,
+    pub members: Vec<i64>,
+    pub public: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UpdateChat {
+    pub name: Option<String>,
+}
 
 pub struct ChatService {
     pool: PgPool,

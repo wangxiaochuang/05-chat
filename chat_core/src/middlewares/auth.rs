@@ -10,23 +10,26 @@ use axum_extra::{
 };
 use tracing::warn;
 
-use crate::AppState;
+use super::TokenVerify;
 
 #[allow(dead_code)]
-pub async fn verify_token(State(state): State<AppState>, req: Request, next: Next) -> Response {
+pub async fn verify_token<T>(State(state): State<T>, req: Request, next: Next) -> Response
+where
+    T: TokenVerify + Clone + Send + Sync + 'static,
+{
     let (mut parts, body) = req.into_parts();
     let req =
         match TypedHeader::<Authorization<Bearer>>::from_request_parts(&mut parts, &state).await {
             Ok(TypedHeader(Authorization(bearer))) => {
                 let token = bearer.token();
-                match state.dk.verify(token) {
+                match state.verify_token(token) {
                     Ok(user) => {
                         let mut req = Request::from_parts(parts, body);
                         req.extensions_mut().insert(user);
                         req
                     }
                     Err(e) => {
-                        let msg = format!("verify token failed: {}", e);
+                        let msg = format!("verify token failed: {:?}", e);
                         warn!(msg);
                         return (StatusCode::FORBIDDEN, msg).into_response();
                     }
@@ -40,21 +43,24 @@ pub async fn verify_token(State(state): State<AppState>, req: Request, next: Nex
         };
     next.run(req).await
 }
-pub async fn verify_token_v2(
-    State(state): State<AppState>,
+pub async fn verify_token_v2<T>(
+    State(state): State<T>,
     TypedHeader(bearer): TypedHeader<axum_extra::headers::Authorization<Bearer>>,
     mut req: Request,
     next: Next,
-) -> Response {
+) -> Response
+where
+    T: TokenVerify + Clone + Send + Sync + 'static,
+{
     let token = bearer.token();
-    match state.dk.verify(token) {
+    match state.verify_token(token) {
         Ok(user) => {
             req.extensions_mut().insert(user);
         }
         Err(e) => {
             return (
                 StatusCode::UNAUTHORIZED,
-                format!("parse Authorization header failed: {}", e),
+                format!("parse Authorization header failed: {:?}", e),
             )
                 .into_response()
         }
@@ -64,12 +70,30 @@ pub async fn verify_token_v2(
 
 #[cfg(test)]
 mod tests {
-    use crate::{config::AppConfig, models::User};
+    use std::sync::Arc;
 
     use super::*;
+    use crate::{
+        utils::{DecodingKey, EncodingKey},
+        User,
+    };
     use anyhow::Result;
     use axum::{body::Body, http::Request, middleware::from_fn_with_state, routing::get, Router};
     use tower::ServiceExt;
+
+    #[derive(Clone)]
+    struct AppState(Arc<AppStateInner>);
+    struct AppStateInner {
+        dk: DecodingKey,
+        ek: EncodingKey,
+    }
+
+    impl TokenVerify for AppState {
+        type Error = anyhow::Error;
+        fn verify_token(&self, token: &str) -> Result<User> {
+            self.0.dk.verify(token)
+        }
+    }
 
     async fn handler() -> String {
         "hello".to_string()
@@ -77,15 +101,21 @@ mod tests {
 
     #[tokio::test]
     async fn verify_token_middleware_should_work() -> Result<()> {
-        let config = AppConfig::load()?;
-        let (state, _tdb) = AppState::try_test_new(config).await?;
+        let encoding_pem = include_str!("../../fixtures/encoding.pem");
+        let decoding_pem = include_str!("../../fixtures/decoding.pem");
 
+        let ek = EncodingKey::load(encoding_pem)?;
+        let dk = DecodingKey::load(decoding_pem)?;
+        let state = AppState(Arc::new(AppStateInner { dk, ek }));
         let user = User::new(1, "jack", "jack@admin");
-        let token = state.ek.sign(user)?;
+        let token = state.0.ek.sign(user)?;
 
         let app = Router::new()
             .route("/", get(handler))
-            .layer(from_fn_with_state(state.clone(), verify_token_v2))
+            .layer(from_fn_with_state(
+                state.clone(),
+                verify_token_v2::<AppState>,
+            ))
             .with_state(state);
 
         let req = Request::builder()

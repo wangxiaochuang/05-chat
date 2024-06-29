@@ -18,3 +18,4 @@ tokio = { workspace = true }
 tokio-stream = "0.1.15"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+chat_core = { workspace = true }

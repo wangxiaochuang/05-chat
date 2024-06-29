@@ -3,7 +3,7 @@ mod msg;
 mod user;
 mod ws;
 
-pub(crate) use chat::ChatService;
-pub(crate) use msg::MsgService;
-pub(crate) use user::UserService;
-pub(crate) use ws::WsService;
+pub(crate) use chat::*;
+pub(crate) use msg::*;
+pub(crate) use user::*;
+pub(crate) use ws::*;

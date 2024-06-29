@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::{
     error::{AppError, ErrorOutput},
-    models::{CreateUser, SigninUser},
+    services::{CreateUser, SigninUser},
     AppState,
 };
 

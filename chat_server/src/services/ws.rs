@@ -90,7 +90,10 @@ impl WsService {
 mod tests {
     use anyhow::Result;
 
-    use crate::{models::CreateUser, services::UserService, test_util::get_test_pool};
+    use crate::{
+        services::{CreateUser, UserService},
+        test_util::get_test_pool,
+    };
 
     use super::*;
 

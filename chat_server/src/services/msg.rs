@@ -3,12 +3,23 @@ use std::{
     str::FromStr,
 };
 
+use chat_core::Message;
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-use crate::{
-    error::AppError,
-    models::{ChatFile, CreateMessage, ListMessageOption, Message},
-};
+use crate::{error::AppError, models::ChatFile};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateMessage {
+    pub content: String,
+    pub files: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListMessageOption {
+    pub last_id: Option<u64>,
+    pub limit: u64,
+}
 
 pub struct MsgService {
     pool: PgPool,

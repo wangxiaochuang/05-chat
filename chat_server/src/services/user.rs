@@ -1,16 +1,29 @@
 use std::{mem, sync::Arc};
 
-use crate::{
-    error::AppError,
-    models::{ChatUser, CreateUser, SigninUser, User},
-};
+use crate::{error::AppError, models::ChatUser};
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
     Argon2, PasswordHash, PasswordVerifier,
 };
+use chat_core::User;
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use super::WsService;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CreateUser {
+    pub fullname: String,
+    pub email: String,
+    pub workspace: String,
+    pub password: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SigninUser {
+    pub email: String,
+    pub password: String,
+}
 
 pub(crate) struct UserService {
     pool: PgPool,
@@ -147,20 +160,6 @@ fn verify_password(password: &str, password_hash: &str) -> Result<bool, AppError
         .verify_password(password.as_bytes(), &password_hash)
         .is_ok();
     Ok(is_valid)
-}
-
-#[cfg(test)]
-impl User {
-    pub fn new(id: i64, fullname: &str, email: &str) -> Self {
-        Self {
-            id,
-            ws_id: 0,
-            fullname: fullname.to_string(),
-            email: email.to_string(),
-            password_hash: None,
-            created_at: chrono::Utc::now(),
-        }
-    }
 }
 
 #[cfg(test)]
