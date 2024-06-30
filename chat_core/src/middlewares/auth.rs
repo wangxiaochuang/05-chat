@@ -1,5 +1,5 @@
 use axum::{
-    extract::{FromRequestParts, Request, State},
+    extract::{FromRequestParts, Query, Request, State},
     http::StatusCode,
     middleware::Next,
     response::{IntoResponse, Response},
@@ -8,6 +8,7 @@ use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
+use serde::Deserialize;
 use tracing::warn;
 
 use super::TokenVerify;
@@ -43,16 +44,25 @@ where
         };
     next.run(req).await
 }
+#[derive(Debug, Deserialize)]
+pub struct AuthInfo {
+    pub token: String,
+}
 pub async fn verify_token_v2<T>(
     State(state): State<T>,
-    TypedHeader(bearer): TypedHeader<axum_extra::headers::Authorization<Bearer>>,
+    bearer: Option<TypedHeader<axum_extra::headers::Authorization<Bearer>>>,
+    query: Option<Query<AuthInfo>>,
     mut req: Request,
     next: Next,
 ) -> Response
 where
     T: TokenVerify + Clone + Send + Sync + 'static,
 {
-    let token = bearer.token();
+    let token = match (&bearer, &query) {
+        (Some(TypedHeader(bearer)), _) => bearer.token(),
+        (_, Some(Query(AuthInfo { ref token }))) => token,
+        _ => return (StatusCode::BAD_REQUEST, "need token").into_response(),
+    };
     match state.verify_token(token) {
         Ok(user) => {
             req.extensions_mut().insert(user);
@@ -118,9 +128,17 @@ mod tests {
             ))
             .with_state(state);
 
+        // with good token in authorization
         let req = Request::builder()
             .uri("/")
             .header("Authorization", format!("Bearer {}", token))
+            .body(Body::empty())?;
+        let res = app.clone().oneshot(req).await?;
+        assert_eq!(res.status(), StatusCode::OK);
+
+        // with good token in query
+        let req = Request::builder()
+            .uri(format!("/?token={}", token))
             .body(Body::empty())?;
         let res = app.clone().oneshot(req).await?;
         assert_eq!(res.status(), StatusCode::OK);
