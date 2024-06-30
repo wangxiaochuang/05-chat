@@ -60,18 +60,17 @@ impl TokenVerify for AppState {
     }
 }
 
-pub fn get_router() -> (Router, AppState) {
-    let config = AppConfig::load().expect("Failed to load config");
+pub async fn get_router(config: AppConfig) -> anyhow::Result<Router> {
     let state = AppState::new(config);
-    let app = Router::new()
+    setup_pg_listener(state.clone()).await?;
+    Ok(Router::new()
         .route("/events", get(sse_handler))
         .layer(from_fn_with_state(
             state.clone(),
             verify_token_v2::<AppState>,
         ))
         .route("/", get(index_handler))
-        .with_state(state.clone());
-    (app, state)
+        .with_state(state.clone()))
 }
 
 async fn index_handler() -> impl IntoResponse {

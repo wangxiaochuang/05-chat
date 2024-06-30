@@ -5,6 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+test-util = ["http-body-util", "sqlx-db-tester", "tempfile"]
+
 [dependencies]
 anyhow = { workspace = true }
 argon2 = { version = "0.5.3", features = ["std"] }
@@ -27,8 +31,9 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
 chat_core = { workspace = true }
+http-body-util = { version = "0.1.1", optional = true }
+sqlx-db-tester = { version = "0.4.2", optional = true }
+tempfile = { version = "3.10.1", optional = true }
 
 [dev-dependencies]
-http-body-util = "0.1.1"
-sqlx-db-tester = "0.4.2"
-tempfile = "3.10.1"
+chat_server = { workspace = true, features = ["test-util"] }

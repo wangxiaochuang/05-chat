@@ -1,4 +1,4 @@
-use std::{env, fs::File, path::PathBuf};
+use std::{env, fs::File, io::Read, path::PathBuf};
 
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ pub struct ServerConfig {
 }
 
 impl AppConfig {
-    pub fn load() -> Result<Self> {
+    pub fn try_load() -> Result<Self> {
         // reqad from /etc/config/app.yml or ./app.yml or from env CHAT_CONFIG
         let ret = match (
             File::open("./app.yml"),
@@ -36,5 +36,9 @@ impl AppConfig {
             _ => bail!("no config file found"),
         };
         Ok(ret?)
+    }
+
+    pub fn try_load_from_reader<R: Read>(reader: R) -> Result<Self> {
+        Ok(serde_yaml::from_reader(reader)?)
     }
 }

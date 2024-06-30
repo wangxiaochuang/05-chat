@@ -1,0 +1,26 @@
+[package]
+name = "chat_test"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+anyhow = { workspace = true }
+reqwest = { version = "0.12.4", default-features = false, features = [
+    "rustls-tls",
+    "json",
+    "multipart",
+    "stream",
+] }
+futures = { workspace = true }
+reqwest-eventsource = "0.6.0"
+axum = { workspace = true }
+chat_core = { workspace = true }
+chat_server = { workspace = true, features = ["test-util"] }
+notify_server = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }

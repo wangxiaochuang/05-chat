@@ -32,12 +32,12 @@ use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::fs;
 #[derive(Debug, Clone)]
 pub struct AppState {
-    inner: Arc<AppStateInner>,
+    pub inner: Arc<AppStateInner>,
 }
 
 #[allow(unused)]
 pub struct AppStateInner {
-    pub(crate) config: AppConfig,
+    pub config: AppConfig,
     pub(crate) ek: EncodingKey,
     pub(crate) dk: DecodingKey,
     pub(crate) pool: PgPool,
@@ -53,8 +53,8 @@ impl TokenVerify for AppState {
         Ok(self.dk.verify(token)?)
     }
 }
-pub async fn get_router(config: AppConfig) -> Result<Router, AppError> {
-    let state = AppState::try_new(config).await?;
+pub async fn get_router(state: AppState) -> Result<Router, AppError> {
+    // let state = AppState::try_new(config).await?;
 
     let chat_route = Router::new()
         .route(
@@ -137,8 +137,8 @@ impl fmt::Debug for AppStateInner {
     }
 }
 
-#[cfg(test)]
-mod test_util {
+#[cfg(feature = "test-util")]
+pub mod test_util {
     use std::sync::Arc;
 
     use anyhow::Result;
@@ -203,8 +203,16 @@ mod test_util {
         (tdb, pool)
     }
 
+    #[allow(dead_code)]
     pub async fn get_test_state_and_pg() -> Result<(AppState, TestPg)> {
-        let config: AppConfig = AppConfig::load()?;
+        let config: AppConfig = AppConfig::try_load()?;
+        Ok(AppState::try_test_new(config).await?)
+    }
+
+    pub async fn get_test_state_and_pg_from_config_reader<T: std::io::Read>(
+        reader: T,
+    ) -> Result<(AppState, TestPg)> {
+        let config = AppConfig::try_load_from_reader(reader)?;
         Ok(AppState::try_test_new(config).await?)
     }
 }

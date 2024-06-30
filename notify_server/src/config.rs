@@ -35,4 +35,8 @@ impl AppConfig {
         };
         Ok(ret?)
     }
+
+    pub fn load_from_reader<R: std::io::Read>(reader: R) -> Result<Self> {
+        Ok(serde_yaml::from_reader(reader)?)
+    }
 }
