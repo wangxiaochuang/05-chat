@@ -8,20 +8,27 @@ use argon2::{
 use chat_core::User;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use utoipa::ToSchema;
 
 use super::WsService;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, ToSchema, Serialize, Deserialize, PartialEq)]
 pub struct CreateUser {
+    /// Full name of the user
     pub fullname: String,
+    /// Email of the user
     pub email: String,
+    /// Workspace name - if not exists, create one
     pub workspace: String,
+    /// Password of the user
     pub password: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, ToSchema, Serialize, Deserialize, PartialEq)]
 pub struct SigninUser {
+    /// login email as username
     pub email: String,
+    /// password
     pub password: String,
 }
 

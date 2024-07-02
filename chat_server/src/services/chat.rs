@@ -5,13 +5,17 @@ use crate::AppError;
 use chat_core::{Chat, ChatType};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use utoipa::ToSchema;
 
 use super::UserService;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, ToSchema, Default, Serialize, Deserialize)]
 pub struct CreateChat {
+    /// chat name
     pub name: Option<String>,
+    /// chat members
     pub members: Vec<i64>,
+    /// whether it is public
     pub public: bool,
 }
 

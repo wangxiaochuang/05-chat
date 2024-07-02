@@ -20,6 +20,19 @@ pub(crate) async fn list_chat_handler(
     Ok((StatusCode::OK, Json(chats)))
 }
 
+/// create new chat
+///
+/// - If success, it'll return 201 with new chat
+#[utoipa::path(
+    post,
+    path = "/api/chats",
+    security(
+        ("token" = [])
+    ),
+    responses(
+        (status = 201, description = "chat created", body = Chat),
+    )
+)]
 pub(crate) async fn create_chat_handler(
     State(state): State<AppState>,
     Extension(user): Extension<User>,

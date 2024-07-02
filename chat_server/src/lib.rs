@@ -24,9 +24,11 @@ mod error;
 mod handlers;
 mod middlewares;
 mod models;
+mod openapi;
 mod services;
 
 use middlewares::verify_chat_perm;
+use openapi::OpenApiRouter;
 use services::{ChatService, MsgService, UserService, WsService};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::fs;
@@ -80,6 +82,7 @@ pub async fn get_router(state: AppState) -> Result<Router, AppError> {
         .route("/signup", post(signup_handler));
 
     let app = Router::new()
+        .openapi()
         .route("/", get(index_handler))
         .nest("/api", api)
         .with_state(state);

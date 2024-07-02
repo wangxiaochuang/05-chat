@@ -47,3 +47,4 @@ chat_server = { path = "./chat_server" }
 notify_server = { path = "./notify_server" }
 chat_core = { path = "./chat_core" }
 futures = "0.3.30"
+utoipa = { version = "4.2.3", features = ["chrono", "axum_extras"] }

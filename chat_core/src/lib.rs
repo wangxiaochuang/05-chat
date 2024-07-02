@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
+use utoipa::ToSchema;
 
 pub mod middlewares;
 pub mod utils;
@@ -17,7 +18,7 @@ pub struct User {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, sqlx::Type)]
+#[derive(Debug, Clone, ToSchema, Serialize, Deserialize, PartialEq, PartialOrd, sqlx::Type)]
 #[sqlx(type_name = "chat_type", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum ChatType {
@@ -27,7 +28,7 @@ pub enum ChatType {
     PublicChannel,
 }
 
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, ToSchema, FromRow, Serialize, Deserialize, PartialEq)]
 pub struct Chat {
     pub id: i64,
     pub ws_id: i64,
