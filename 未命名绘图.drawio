@@ -17,7 +17,7 @@
           <mxGeometry y="78" width="140" height="26" as="geometry" />
         </mxCell>
         <mxCell id="XDgvkcOe5QFC_7SKI6ll-5" value="用户" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="570" y="380" width="140" height="52" as="geometry" />
+          <mxGeometry x="570" y="400" width="140" height="52" as="geometry" />
         </mxCell>
         <mxCell id="XDgvkcOe5QFC_7SKI6ll-6" value="邮箱" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" parent="XDgvkcOe5QFC_7SKI6ll-5" vertex="1">
           <mxGeometry y="26" width="140" height="26" as="geometry" />
@@ -82,7 +82,7 @@
         </mxCell>
         <mxCell id="85xS_uLHPu99wAGvivK9-2" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="85xS_uLHPu99wAGvivK9-1">
           <mxGeometry x="0.7555" y="2" relative="1" as="geometry">
-            <mxPoint x="-1" y="-6" as="offset" />
+            <mxPoint x="3" y="-6" as="offset" />
           </mxGeometry>
         </mxCell>
         <mxCell id="85xS_uLHPu99wAGvivK9-4" value="{&lt;div&gt;- 只有频道才有管理员，可以添加删除成员&lt;/div&gt;&lt;div&gt;- 公共频道，只要是工作区的成员，都可以加入&lt;br&gt;&lt;div&gt;}&lt;/div&gt;&lt;/div&gt;" style="shape=note2;boundedLbl=1;whiteSpace=wrap;html=1;size=25;verticalAlign=top;align=left;" vertex="1" parent="1">
@@ -103,7 +103,7 @@
         </mxCell>
         <mxCell id="85xS_uLHPu99wAGvivK9-25" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="85xS_uLHPu99wAGvivK9-24">
           <mxGeometry x="0.7555" y="2" relative="1" as="geometry">
-            <mxPoint x="9" y="2" as="offset" />
+            <mxPoint x="7" y="-7" as="offset" />
           </mxGeometry>
         </mxCell>
       </root>
